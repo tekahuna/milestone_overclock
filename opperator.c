@@ -42,10 +42,11 @@ MODULE_LICENSE("GPL");
 // opp.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(int, opp_get_opp_count_fp, struct device *dev);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *, opp_find_freq_floor_fp, struct device *dev, unsigned long *freq);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device_opp *, find_device_opp_fp, struct device *dev);
 
 static int maxdex;
-static unsigned long def_max_rate;
-static unsigned long def_max_volt;
+static unsigned long default_max_rate;
+static unsigned long default_max_voltage;
 
 static struct cpufreq_frequency_table *freq_table;
 static struct cpufreq_policy *policy;
@@ -88,18 +89,28 @@ struct device_opp {
 };
 
 static int proc_opperator_read(char *buffer, char **buffer_location,
-							   off_t offset, int count, int *eof, void *data) {
+							   off_t offset, int count, int *eof, void *data)
+{
 	int ret = 0;
 	unsigned long freq = ULONG_MAX;
 	struct device *dev = NULL;
+	struct device_opp *dev_opp = ERR_PTR(-ENODEV);
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
 	dev = omap2_get_mpuss_device();
 	if (IS_ERR(dev)) {
 		return -ENODEV;
 	}
+	dev_opp = find_device_opp_fp(dev);
+	if (IS_ERR(dev_opp)) {
+		return -ENODEV;
+	}
+	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count=%u\n", dev_opp->opp_count);
+	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count_enabled=%u\n", dev_opp->enabled_opp_count);
+	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_rate=%lu\n", default_max_rate);
+	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_voltage=%lu\n", default_max_voltage);
 	while (!IS_ERR(opp = opp_find_freq_floor_fp(dev, &freq))) {
-		ret += scnprintf(buffer+ret, count-ret, "mpu: enabled=%u frequency=%lu voltage=%lu\n", 
+		ret += scnprintf(buffer+ret, count-ret, "mpu: enabled=%u rate=%lu voltage=%lu\n", 
 											 opp->enabled, opp->rate, opp->u_volt);
 		freq--;
 	}
@@ -107,7 +118,8 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 };
 
 static int proc_opperator_write(struct file *filp, const char __user *buffer,
-								unsigned long len, void *data) {
+								unsigned long len, void *data)
+{
 	unsigned long volt, rate, freq = ULONG_MAX;
 	struct device *dev = NULL;
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
@@ -145,6 +157,7 @@ static int __init opperator_init(void)
 
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_get_opp_count, opp_get_opp_count_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_find_freq_floor, opp_find_freq_floor_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(opperator, find_device_opp, find_device_opp_fp);
 	
 	freq_table = cpufreq_frequency_get_table(0);
 	policy = cpufreq_cpu_get(0);
@@ -155,8 +168,8 @@ static int __init opperator_init(void)
 	if (IS_ERR(opp)) {
 		return -ENODEV;
 	}
-	def_max_rate = opp->rate;
-	def_max_volt = opp->u_volt;
+	default_max_rate = opp->rate;
+	default_max_voltage = opp->u_volt;
 	
 	buf = (char *)vmalloc(BUF_SIZE);
 	
@@ -178,10 +191,10 @@ static void __exit opperator_exit(void)
 	
 	dev = omap2_get_mpuss_device();
 	opp = opp_find_freq_floor_fp(dev, &freq);
-	opp->rate = def_max_rate;
-	opp->u_volt = def_max_volt;
+	opp->rate = default_max_rate;
+	opp->u_volt = default_max_voltage;
 	freq_table[maxdex].frequency = policy->max = policy->cpuinfo.max_freq =
-	policy->user_policy.max = def_max_rate / 1000;
+	policy->user_policy.max = default_max_rate / 1000;
 	
 	printk(KERN_INFO " OPPerator: Reseting values to default... Goodbye!\n");
 };
