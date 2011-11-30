@@ -40,6 +40,7 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *, opp_find_freq_floor_fp, str
 
 static int maxdex;
 static unsigned long def_max_rate;
+static unsigned long def_max_volt;
 
 static struct cpufreq_frequency_table *freq_table;
 static struct cpufreq_policy *policy;
@@ -85,22 +86,25 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 							   off_t offset, int count, int *eof, void *data) {
 	int ret = 0;
 	unsigned long freq = ULONG_MAX;
-	struct device *dev = ERR_PTR(-ENODEV);
+	struct device *dev = NULL;
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
 	dev = omap2_get_mpuss_device();
-	opp = opp_find_freq_floor_fp(dev, &freq);
-	if (IS_ERR(opp)) {
+	if (IS_ERR(dev)) {
 		return -ENODEV;
 	}
-	ret += scnprintf(buffer+ret, count-ret, "mpu: enabled=%u frequency=%lu voltage=%lu\n", opp->enabled, opp->rate, opp->u_volt);	
+	while (!IS_ERR(opp = opp_find_freq_floor_fp(dev, &freq))) {
+		ret += scnprintf(buffer+ret, count-ret, "mpu: enabled=%u frequency=%lu voltage=%lu\n", 
+											 opp->enabled, opp->rate, opp->u_volt);
+		freq--;
+	}
 	return ret;
 };
 
 static int proc_opperator_write(struct file *filp, const char __user *buffer,
 								unsigned long len, void *data) {
 	unsigned long volt, rate, freq = ULONG_MAX;
-	struct device *dev = ERR_PTR(-ENODEV);
+	struct device *dev = NULL;
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
 	
@@ -127,7 +131,7 @@ static int proc_opperator_write(struct file *filp, const char __user *buffer,
 static int __init opperator_init(void)
 {
 	unsigned long freq = ULONG_MAX;
-	struct device *dev = ERR_PTR(-ENODEV);
+	struct device *dev = NULL;
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	struct proc_dir_entry *proc_entry;
 	
@@ -143,7 +147,11 @@ static int __init opperator_init(void)
 	dev = omap2_get_mpuss_device();
 	maxdex = (opp_get_opp_count_fp(dev)-1);
 	opp = opp_find_freq_floor_fp(dev, &freq);
+	if (IS_ERR(opp)) {
+		return -ENODEV;
+	}
 	def_max_rate = opp->rate;
+	def_max_volt = opp->u_volt;
 	
 	buf = (char *)vmalloc(BUF_SIZE);
 	
@@ -156,7 +164,7 @@ static int __init opperator_init(void)
 static void __exit opperator_exit(void)
 {
 	unsigned long freq = ULONG_MAX;
-	struct device *dev = ERR_PTR(-ENODEV);
+	struct device *dev = NULL;
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
 	remove_proc_entry("opperator", NULL);
@@ -166,6 +174,7 @@ static void __exit opperator_exit(void)
 	dev = omap2_get_mpuss_device();
 	opp = opp_find_freq_floor_fp(dev, &freq);
 	opp->rate = def_max_rate;
+	opp->u_volt = def_max_volt;
 	freq_table[maxdex].frequency = policy->max = policy->cpuinfo.max_freq =
 	policy->user_policy.max = def_max_rate / 1000;
 	
