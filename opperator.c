@@ -27,6 +27,7 @@
 #include <asm/uaccess.h>
 #include <linux/cpufreq.h>
 #include <plat/common.h>
+#include <plat/voltage.h>
 
 #include "../symsearch/symsearch.h"
 
@@ -43,6 +44,11 @@ MODULE_LICENSE("GPL");
 SYMSEARCH_DECLARE_FUNCTION_STATIC(int, opp_get_opp_count_fp, struct device *dev);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *, opp_find_freq_floor_fp, struct device *dev, unsigned long *freq);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device_opp *, find_device_opp_fp, struct device *dev);
+// voltage.c
+SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, omap_vp_get_curr_volt_fp, struct voltagedomain *voltdm);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, omap_voltage_get_nom_volt_fp, struct voltagedomain *voltdm);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(struct voltagedomain *, omap_voltage_domain_get_fp, char *name);
+
 
 static int maxdex;
 static unsigned long default_max_rate;
@@ -94,6 +100,7 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 	int ret = 0;
 	unsigned long freq = ULONG_MAX;
 	struct device *dev = NULL;
+	struct voltagedomain *voltdm = NULL;
 	struct device_opp *dev_opp = ERR_PTR(-ENODEV);
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
@@ -109,6 +116,9 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count_enabled=%u\n", dev_opp->enabled_opp_count);
 	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_rate=%lu\n", default_max_rate);
 	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_voltage=%lu\n", default_max_voltage);
+	voltdm = omap_voltage_domain_get_fp("mpu");
+	ret += scnprintf(buffer+ret, count-ret, "mpu: current_voltdm_voltage=%lu\n", omap_vp_get_curr_volt_fp(voltdm));
+	ret += scnprintf(buffer+ret, count-ret, "mpu: nominal_voltdm_voltage=%lu\n", omap_voltage_get_nom_volt_fp(voltdm));
 	while (!IS_ERR(opp = opp_find_freq_floor_fp(dev, &freq))) {
 		ret += scnprintf(buffer+ret, count-ret, "mpu: enabled=%u rate=%lu voltage=%lu\n", 
 											 opp->enabled, opp->rate, opp->u_volt);
@@ -155,9 +165,14 @@ static int __init opperator_init(void)
 	printk(KERN_INFO " %s %s\n", DRIVER_DESCRIPTION, DRIVER_VERSION);
 	printk(KERN_INFO " Created by %s\n", DRIVER_AUTHOR);
 
+	// opp.c
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_get_opp_count, opp_get_opp_count_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_find_freq_floor, opp_find_freq_floor_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, find_device_opp, find_device_opp_fp);
+	//voltage.c
+	SYMSEARCH_BIND_FUNCTION_TO(opperator, omap_vp_get_curr_volt, omap_vp_get_curr_volt_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(opperator, omap_voltage_get_nom_volt, omap_voltage_get_nom_volt_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(opperator, omap_voltage_domain_get, omap_voltage_domain_get_fp);
 	
 	freq_table = cpufreq_frequency_get_table(0);
 	policy = cpufreq_cpu_get(0);
