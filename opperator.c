@@ -32,7 +32,7 @@
 #include "../symsearch/symsearch.h"
 
 #define DRIVER_AUTHOR "Jeffrey Kawika Patricio <jkp@tekahuna.net>\n"
-#define DRIVER_DESCRIPTION "OPPerator - The OPP Management API\n This module makes use of symsearch.ko by Skrilax_CZ\n"
+#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n Note: This module makes use of SYMSEARCH by Skrilax_CZ & is inspired\n by Milestone Overclock by Tiago Sousa\n"
 #define DRIVER_VERSION "0.1-beta1"
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
@@ -104,6 +104,11 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 	struct device_opp *dev_opp = ERR_PTR(-ENODEV);
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
+	voltdm = omap_voltage_domain_get_fp("mpu");
+	if (!voltdm || IS_ERR(voltdm)) {
+		pr_warning("%s: VDD specified does not exist!\n", __func__);
+		return -EINVAL;
+	}
 	dev = omap2_get_mpuss_device();
 	if (IS_ERR(dev)) {
 		return -ENODEV;
@@ -116,7 +121,6 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count_enabled=%u\n", dev_opp->enabled_opp_count);
 	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_rate=%lu\n", default_max_rate);
 	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_voltage=%lu\n", default_max_voltage);
-	voltdm = omap_voltage_domain_get_fp("mpu");
 	ret += scnprintf(buffer+ret, count-ret, "mpu: current_voltdm_voltage=%lu\n", omap_vp_get_curr_volt_fp(voltdm));
 	ret += scnprintf(buffer+ret, count-ret, "mpu: nominal_voltdm_voltage=%lu\n", omap_voltage_get_nom_volt_fp(voltdm));
 	while (!IS_ERR(opp = opp_find_freq_floor_fp(dev, &freq))) {
@@ -162,8 +166,8 @@ static int __init opperator_init(void)
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	struct proc_dir_entry *proc_entry;
 	
-	printk(KERN_INFO " %s %s\n", DRIVER_DESCRIPTION, DRIVER_VERSION);
-	printk(KERN_INFO " Created by %s\n", DRIVER_AUTHOR);
+	printk(KERN_INFO " %s Version: %s\n", DRIVER_DESCRIPTION, DRIVER_VERSION);
+	printk(KERN_INFO " Created by: %s\n", DRIVER_AUTHOR);
 
 	// opp.c
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_get_opp_count, opp_get_opp_count_fp);
