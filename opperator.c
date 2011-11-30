@@ -34,8 +34,6 @@ MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
 MODULE_VERSION(DRIVER_VERSION);
 MODULE_LICENSE("GPL");
 
-// opp44xxdata.c
-//SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device *, find_dev_ptr_fp, char *name);
 // opp.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(int, opp_get_opp_count_fp, struct device *dev);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *, opp_find_freq_floor_fp, struct device *dev, unsigned long *freq);
@@ -87,7 +85,7 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 							   off_t offset, int count, int *eof, void *data) {
 	int ret = 0;
 	unsigned long freq = ULONG_MAX;
-	struct device *dev;
+	struct device *dev = ERR_PTR(-ENODEV);
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
 	dev = omap2_get_mpuss_device();
@@ -95,14 +93,14 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 	if (IS_ERR(opp)) {
 		return -ENODEV;
 	}
-	ret += scnprintf(buffer+ret, count-ret, "mpu: %lu %lu\n", opp->rate, opp->u_volt);	
+	ret += scnprintf(buffer+ret, count-ret, "mpu: enabled=%u frequency=%lu voltage=%lu\n", opp->enabled, opp->rate, opp->u_volt);	
 	return ret;
 };
 
 static int proc_opperator_write(struct file *filp, const char __user *buffer,
 								unsigned long len, void *data) {
 	unsigned long volt, rate, freq = ULONG_MAX;
-	struct device *dev;
+	struct device *dev = ERR_PTR(-ENODEV);
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
 	
@@ -129,14 +127,13 @@ static int proc_opperator_write(struct file *filp, const char __user *buffer,
 static int __init opperator_init(void)
 {
 	unsigned long freq = ULONG_MAX;
-	struct device *dev;
-	struct omap_opp *opp;
+	struct device *dev = ERR_PTR(-ENODEV);
+	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	struct proc_dir_entry *proc_entry;
 	
 	printk(KERN_INFO " %s %s\n", DRIVER_DESCRIPTION, DRIVER_VERSION);
 	printk(KERN_INFO " Created by %s\n", DRIVER_AUTHOR);
 
-//	SYMSEARCH_BIND_FUNCTION_TO(opperator, find_dev_ptr, find_dev_ptr_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_get_opp_count, opp_get_opp_count_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_find_freq_floor, opp_find_freq_floor_fp);
 	
@@ -159,8 +156,8 @@ static int __init opperator_init(void)
 static void __exit opperator_exit(void)
 {
 	unsigned long freq = ULONG_MAX;
-	struct device *dev;
-	struct omap_opp *opp;
+	struct device *dev = ERR_PTR(-ENODEV);
+	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
 	remove_proc_entry("opperator", NULL);
 	
