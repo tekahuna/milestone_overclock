@@ -1,16 +1,21 @@
 /*
  opperator.ko - The OPP Mannagement API
- version 0.1 - 11-11-11
+ version 0.1-beta1 - 11-30-11
  by Jeffrey Kawika Patricio <jkp@tekahuna.net>
- License: GNU GPLv2
- <http://www.gnu.org/licenses/old-licenses/gpl-2.0.html>
+ License: GNU GPLv3
+ <http://www.gnu.org/licenses/gpl-3.0.html>
  
  Project site:
  http://code.google.com/p/opperator/
  
  Changelog:
  
- version 0.1 - 11-11-11
+ version 0.1-beta1 - 11-11-11
+ - Initilize git repository.
+ - Cleaned up code to work on OMAP2+ w/kernel 2.6.35-7 and greater, not just OMAP4
+ - Misc Cleanup
+ 
+ version 0.1-alpha - 11-11-11
  - Initial working build.
 */
  
@@ -27,7 +32,7 @@
 
 #define DRIVER_AUTHOR "Jeffrey Kawika Patricio <jkp@tekahuna.net>\n"
 #define DRIVER_DESCRIPTION "OPPerator - The OPP Management API\n This module makes use of symsearch.ko by Skrilax_CZ\n"
-#define DRIVER_VERSION "0.1-beta"
+#define DRIVER_VERSION "0.1-beta1"
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
