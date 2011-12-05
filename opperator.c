@@ -29,11 +29,13 @@
 #include <plat/common.h>
 #include <plat/voltage.h>
 
+
 #include "opp_info_razr.h"
 #include "../symsearch/symsearch.h"
 
 #define DRIVER_AUTHOR "Jeffrey Kawika Patricio <jkp@tekahuna.net>\n"
-#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n Note: This module makes use of SYMSEARCH by Skrilax_CZ & is inspired\n by Milestone Overclock by Tiago Sousa\n"
+#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n Note: This module makes use of \
+							SYMSEARCH by Skrilax_CZ & is inspired\n by Milestone Overclock by Tiago Sousa\n"
 #define DRIVER_VERSION "0.1-beta1"
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
@@ -56,6 +58,8 @@ static int maxdex;
 static unsigned long default_max_rate;
 static unsigned long default_max_voltage;
 
+static struct omap_opp *default_mpu_opps;
+static struct omap_vdd_info *default_mpu_vdd_info;
 static struct cpufreq_frequency_table *freq_table;
 static struct cpufreq_policy *policy;
 
@@ -148,7 +152,7 @@ static int proc_opperator_write(struct file *filp, const char __user *buffer,
 		freq_table[maxdex].frequency = policy->max = policy->cpuinfo.max_freq =
 			policy->user_policy.max = rate / 1000;
 		freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-		policy->user_policy.min = 300000;
+			policy->user_policy.min = 300000;
 		mutex_unlock(&vdd->scaling_mutex);
 	} else
 		printk(KERN_INFO "OPPerator: incorrect parameters\n");
