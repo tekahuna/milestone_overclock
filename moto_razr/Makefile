@@ -1,6 +1,6 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/moto_razr
 KERNEL_CROSS_COMPILE := arm-eabi-
-EXTRA_CFLAGS := -DMOTO_RAZR
+EXTRA_CFLAGS := 
 FILENAME := opperator
 
 obj-m += $(FILENAME).o

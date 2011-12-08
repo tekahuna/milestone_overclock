@@ -1,6 +1,6 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/lge_cosmo
 KERNEL_CROSS_COMPILE := arm-eabi-
-EXTRA_CFLAGS := -DHAS_FIND_DEV_OPP
+EXTRA_CFLAGS :=
 FILENAME := opperator
 
 obj-m += $(FILENAME).o

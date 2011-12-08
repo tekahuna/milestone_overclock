@@ -12,7 +12,7 @@
  
  version 0.1-beta1 - 11-11-11
  - Initilize git repository.
- - Cleaned up code to work on OMAP2+ w/kernel 2.6.35-7 and greater, not just OMAP4
+ - Cleaned up code to work on OMAP2+ w/kernel 2.6.35-7 and greater
  - Misc Cleanup
  
  version 0.1-alpha - 11-11-11
@@ -31,12 +31,11 @@
 
 
 #include "opp_info.h"
-#include "/Volumes/FreeBASE/projects/symsearch/symsearch.h"
+#include "../symsearch/symsearch.h"
 
 #define DRIVER_AUTHOR "Jeffrey Kawika Patricio <jkp@tekahuna.net>\n"
-#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n Note: This module makes use of \
-							SYMSEARCH by Skrilax_CZ & is inspired\n by Milestone Overclock by Tiago Sousa\n"
-#define DRIVER_VERSION "0.1-beta1"
+#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n"
+#define DRIVER_VERSION "0.2-alpha"
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
@@ -44,19 +43,22 @@ MODULE_VERSION(DRIVER_VERSION);
 MODULE_LICENSE("GPL");
 
 // opp.c
-SYMSEARCH_DECLARE_FUNCTION_STATIC(int, opp_get_opp_count_fp, struct device *dev);
-SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *, opp_find_freq_floor_fp, struct device *dev, unsigned long *freq);
-#ifdef HAS_FIND_DEV_OPP 
-SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device_opp *, find_device_opp_fp, struct device *dev);
-#endif
+SYMSEARCH_DECLARE_FUNCTION_STATIC(int, 
+			opp_get_opp_count_fp, struct device *dev);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *, 
+			opp_find_freq_floor_fp, struct device *dev, unsigned long *freq);
 // voltage.c
-SYMSEARCH_DECLARE_FUNCTION_STATIC(void, omap_voltage_reset_fp, struct voltagedomain *voltdm);
-SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, omap_vp_get_curr_volt_fp, struct voltagedomain *voltdm);
-SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, omap_voltage_get_nom_volt_fp, struct voltagedomain *voltdm);
-SYMSEARCH_DECLARE_FUNCTION_STATIC(struct voltagedomain *, omap_voltage_domain_get_fp, char *name);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(struct voltagedomain *, 
+			omap_voltage_domain_get_fp, char *name);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(void, 
+			omap_voltage_reset_fp, struct voltagedomain *voltdm);
 
 
-static int maxdex;
+
+static int opp_count, enabled_opp_count, main_index, cpufreq_index;
+
+static char bad_governor[16] = "performance";
+static char good_governor[16] = "hotplug";
 
 unsigned long default_max_rate;
 unsigned long default_max_voltage;
@@ -70,69 +72,27 @@ static char *buf;
 static int proc_opperator_read(char *buffer, char **buffer_location,
 							   off_t offset, int count, int *eof, void *data)
 {
-	int i, ret = 0;
+	int ret = 0;
 	unsigned long freq = ULONG_MAX;
 	struct device *dev = NULL;
-	#ifdef HAS_FIND_DEV_OPP
-	struct device_opp *dev_opp = ERR_PTR(-ENODEV);
-	#endif
-	struct voltagedomain *voltdm = NULL;
-	struct omap_vdd_info *vdd;
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
-	voltdm = omap_voltage_domain_get_fp("mpu");
-	if (!voltdm || IS_ERR(voltdm)) {
-		pr_warning("%s: VDD specified does not exist!\n", __func__);
-		return -EINVAL;
-	}
-	vdd = container_of(voltdm, struct omap_vdd_info, voltdm);
-
-	ret += scnprintf(buffer+ret, count-ret, "mpu: volt_data_count=%u\n", vdd->volt_data_count);
-	for (i = 0; i < vdd->volt_data_count; i++) {
-		ret += scnprintf(buffer+ret, count-ret, "mpu: volt_data=%u\n", vdd->volt_data[i].volt_nominal);
-	}
-	for (i = 0;vdd->dep_vdd_info[0].dep_table[i].main_vdd_volt != 0; i++) {
-		ret += scnprintf(buffer+ret, count-ret, "mpu: main_vdd_volt=%u dep_vdd_volt=%u\n", 
-						 vdd->dep_vdd_info[0].dep_table[i].main_vdd_volt,
-						 vdd->dep_vdd_info[0].dep_table[i].dep_vdd_volt);
-	}
 	dev = omap2_get_mpuss_device();
-	if (IS_ERR(dev)) {
+	if (!dev || IS_ERR(dev)) {
 		return -ENODEV;
 	}
-#ifdef HAS_FIND_DEV_OPP
-	dev_opp = find_device_opp_fp(dev);
-	if (IS_ERR(dev_opp)) {
-		return -ENODEV;
-	}
-	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count=%u\n", dev_opp->opp_count);
-	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count_enabled=%u\n", dev_opp->enabled_opp_count);
-#else
 	opp = opp_find_freq_floor_fp(dev, &freq);
-	if (IS_ERR(opp)) {
-		return -ENODEV;
-	}
-	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count=%u\n", opp->dev_opp->opp_count);
-	ret += scnprintf(buffer+ret, count-ret, "mpu: opp_count_enabled=%u\n", opp->dev_opp->enabled_opp_count);
-#endif
-	ret += scnprintf(buffer+ret, count-ret, "mpu: governor=%s\n", policy->governor->name);
-	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_rate=%lu\n", default_max_rate);
-	ret += scnprintf(buffer+ret, count-ret, "mpu: default_max_voltage=%lu\n", default_max_voltage);
-	ret += scnprintf(buffer+ret, count-ret, "mpu: current_voltdm_voltage=%lu\n", omap_vp_get_curr_volt_fp(voltdm));
-	ret += scnprintf(buffer+ret, count-ret, "mpu: nominal_voltdm_voltage=%lu\n", omap_voltage_get_nom_volt_fp(voltdm));
-	freq = ULONG_MAX;
-	while (!IS_ERR(opp = opp_find_freq_floor_fp(dev, &freq))) {
-		ret += scnprintf(buffer+ret, count-ret, "mpu: enabled=%u rate=%lu voltage=%lu\n", 
-											 opp->enabled, opp->rate, opp->u_volt);
-		freq--;
-	}
+	
+	ret += scnprintf(buffer+ret, count-ret, "%lu %lu\n", opp->rate, opp->u_volt);
+
 	return ret;
 };
 
 static int proc_opperator_write(struct file *filp, const char __user *buffer,
 								unsigned long len, void *data)
 {
-	unsigned long volt, rate, freq = ULONG_MAX;
+	int bad_gov_check = 0;
+	unsigned long volt, temp_rate, rate, freq = ULONG_MAX;
 	struct device *dev = NULL;
 	struct voltagedomain *voltdm = NULL;
 	struct omap_vdd_info *vdd;
@@ -146,37 +106,49 @@ static int proc_opperator_write(struct file *filp, const char __user *buffer,
 	if(sscanf(buf, "%lu %lu", &rate, &volt) == 2) {
 		voltdm = omap_voltage_domain_get_fp("mpu");
 		if (!voltdm || IS_ERR(voltdm)) {
-			pr_warning("%s: VDD specified does not exist!\n", __func__);
-			return -EINVAL;
-		}
-		vdd = container_of(voltdm, struct omap_vdd_info, voltdm);
-		mutex_lock(&vdd->scaling_mutex);
-		dev = omap2_get_mpuss_device();
-		opp = opp_find_freq_floor_fp(dev, &freq);
-		if (IS_ERR(opp)) {
 			return -ENODEV;
 		}
-		if (policy->governor->name != "performance") {
-			freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = opp->rate / 1000;
+
+		vdd = container_of(voltdm, struct omap_vdd_info, voltdm);
+		if (!vdd || IS_ERR(vdd)) {
+			return -ENODEV;
 		}
-#ifdef MOTO_RAZR
-		vdd->volt_data[maxdex+1].volt_nominal = volt;
-		vdd->dep_vdd_info[0].dep_table[maxdex+1].main_vdd_volt = volt;
-#else
-		vdd->volt_data[maxdex].volt_nominal = volt;
-		vdd->dep_vdd_info[0].dep_table[maxdex].main_vdd_volt = volt;
-#endif
-		opp->u_volt = volt;
-		opp->rate = rate;
-		omap_voltage_reset_fp(voltdm);
+
+		dev = omap2_get_mpuss_device();
+		if (!dev || IS_ERR(dev)) {
+			return -ENODEV;
+		}
 		
-		freq_table[maxdex].frequency = policy->max = policy->cpuinfo.max_freq =
-			policy->user_policy.max = rate / 1000;
-		if (policy->governor->name != "performance") {
-		freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = 300000;
+		opp = opp_find_freq_floor_fp(dev, &freq);
+		if (!opp || IS_ERR(opp)) {
+			return -ENODEV;
 		}
+
+		if (policy->governor->name == bad_governor) {
+			policy->governor->governor = (void *)good_governor;
+			bad_gov_check = 1;
+		}
+		temp_rate = policy->user_policy.min;
+		freq_table[cpufreq_index].frequency = 
+			policy->max = policy->cpuinfo.max_freq =
+			policy->user_policy.max = rate / 1000;		
+		freq_table[0].frequency = policy->min = 
+			policy->cpuinfo.min_freq =
+			policy->user_policy.min = rate / 1000;
+
+		vdd->volt_data[main_index].volt_nominal = volt;
+		vdd->dep_vdd_info[0].dep_table[main_index].main_vdd_volt = volt;
+		opp->u_volt = volt;
+
+		opp->rate = rate;	
+
+		if (bad_gov_check == 1) {
+			policy->governor->governor = (void *)bad_governor;
+		}
+		freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
+			policy->user_policy.min = temp_rate;
+
+		omap_voltage_reset_fp(voltdm);
 		mutex_unlock(&vdd->scaling_mutex);
 	} else
 		printk(KERN_INFO "OPPerator: incorrect parameters\n");
@@ -186,41 +158,66 @@ static int proc_opperator_write(struct file *filp, const char __user *buffer,
 static int __init opperator_init(void)
 {
 	unsigned long freq = ULONG_MAX;
-	struct device *dev = NULL;
-
+	struct device *dev = ERR_PTR(-ENODEV);
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
+	struct voltagedomain *voltdm = ERR_PTR(-ENODEV);
+	struct omap_vdd_info *vdd = ERR_PTR(-ENODEV);
 	struct proc_dir_entry *proc_entry;
 	
-	printk(KERN_INFO " %s Version: %s\n", DRIVER_DESCRIPTION, DRIVER_VERSION);
-	printk(KERN_INFO " Created by: %s\n", DRIVER_AUTHOR);
+	printk(KERN_INFO " %s Version: %s\n", 
+		   DRIVER_DESCRIPTION, DRIVER_VERSION);
+	printk(KERN_INFO " Created by: %s\n", 
+		   DRIVER_AUTHOR);
 
 	// opp.c
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_get_opp_count, opp_get_opp_count_fp);
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, opp_find_freq_floor, opp_find_freq_floor_fp);
-	#ifdef HAS_FIND_DEV_OPP 
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, find_device_opp, find_device_opp_fp);
-	#endif
-	//voltage.c
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, omap_voltage_reset, omap_voltage_reset_fp);
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, omap_vp_get_curr_volt, omap_vp_get_curr_volt_fp);
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, omap_voltage_get_nom_volt, omap_voltage_get_nom_volt_fp);
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, omap_voltage_domain_get, omap_voltage_domain_get_fp);
-	
+	SYMSEARCH_BIND_FUNCTION_TO(opperator, 
+				opp_get_opp_count, opp_get_opp_count_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(opperator, 
+				opp_find_freq_floor, opp_find_freq_floor_fp);
+	// voltage.c
+	SYMSEARCH_BIND_FUNCTION_TO(opperator, 
+				omap_voltage_domain_get, omap_voltage_domain_get_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(opperator,
+							   omap_voltage_reset, omap_voltage_reset_fp);
+	 
 	freq_table = cpufreq_frequency_get_table(0);
 	policy = cpufreq_cpu_get(0);
 	
-	dev = omap2_get_mpuss_device();
-	maxdex = (opp_get_opp_count_fp(dev)-1);
-	opp = opp_find_freq_floor_fp(dev, &freq);
-	if (IS_ERR(opp)) {
+	voltdm = omap_voltage_domain_get_fp("mpu");
+	if (!voltdm || IS_ERR(voltdm)) {
 		return -ENODEV;
 	}
+	vdd = container_of(voltdm, struct omap_vdd_info, voltdm);
+	if (!vdd || IS_ERR(vdd)) {
+		return -ENODEV;
+	}
+	opp_count = vdd->volt_data_count;
+	
+	dev = omap2_get_mpuss_device();
+	if (!dev || IS_ERR(dev)) {
+		return -ENODEV;
+	}
+	enabled_opp_count = opp_get_opp_count_fp(dev);
+
+	if (enabled_opp_count == opp_count) {
+		main_index = cpufreq_index = (enabled_opp_count-1);
+	} else {
+		main_index = enabled_opp_count;
+		cpufreq_index = (enabled_opp_count-1);
+	}
+	
+	opp = opp_find_freq_floor_fp(dev, &freq);
+	if (!opp || IS_ERR(opp)) {
+		return -ENODEV;
+	}
+	
 	default_max_rate = opp->rate;
 	default_max_voltage = opp->u_volt;
 	
 	buf = (char *)vmalloc(BUF_SIZE);
 	
-	proc_entry = create_proc_read_entry("opperator", 0644, NULL, proc_opperator_read, NULL);
+	proc_entry = create_proc_read_entry("opperator", 0644, NULL, 
+										proc_opperator_read, NULL);
 	proc_entry->write_proc = proc_opperator_write;
 	
 	return 0;
@@ -228,7 +225,8 @@ static int __init opperator_init(void)
 
 static void __exit opperator_exit(void)
 {
-	unsigned long freq = ULONG_MAX;
+	int bad_gov_check = 0;
+	unsigned long temp_rate, freq = ULONG_MAX;
 	struct device *dev = NULL;
 	struct voltagedomain *voltdm = NULL;
 	struct omap_vdd_info *vdd;
@@ -240,38 +238,50 @@ static void __exit opperator_exit(void)
 	
 	voltdm = omap_voltage_domain_get_fp("mpu");
 	if (!voltdm || IS_ERR(voltdm)) {
-		pr_warning("%s: VDD specified does not exist!\n", __func__);
 		return;
 	}
+	
 	vdd = container_of(voltdm, struct omap_vdd_info, voltdm);
-	dev = omap2_get_mpuss_device();
-	opp = opp_find_freq_floor_fp(dev, &freq);
-	if (IS_ERR(opp)) {
+	if (!vdd || IS_ERR(vdd)) {
 		return;
 	}
-	if (policy->governor->name != "performance") {
-		freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-		policy->user_policy.min = opp->rate / 1000;
-	}	
-	mutex_lock(&vdd->scaling_mutex);
-#ifdef MOTO_RAZR
-	vdd->volt_data[maxdex+1].volt_nominal = default_max_voltage;
-	vdd->dep_vdd_info[0].dep_table[maxdex+1].main_vdd_volt = default_max_voltage;
-#else
-	vdd->volt_data[maxdex].volt_nominal = default_max_voltage;
-	vdd->dep_vdd_info[0].dep_table[maxdex].main_vdd_volt = default_max_voltage;
-#endif
-	omap_voltage_reset_fp(voltdm);
-	opp->rate = default_max_rate;
+	
+	dev = omap2_get_mpuss_device();
+	if (!dev || IS_ERR(dev)) {
+		return;
+	}
+	
+	opp = opp_find_freq_floor_fp(dev, &freq);
+	if (!opp || IS_ERR(opp)) {
+		return;
+	}
+	
+	if (policy->governor->name == bad_governor) {
+		policy->governor->governor = (void *)good_governor;
+		bad_gov_check = 1;
+	}
+	temp_rate = policy->user_policy.min;
+	freq_table[cpufreq_index].frequency = 
+		policy->max = policy->cpuinfo.max_freq =
+		policy->user_policy.max = default_max_rate / 1000;		
+	freq_table[0].frequency = policy->min = 
+		policy->cpuinfo.min_freq =
+		policy->user_policy.min = default_max_rate / 1000;
+	
+	vdd->volt_data[main_index].volt_nominal = default_max_voltage;
+	vdd->dep_vdd_info[0].dep_table[main_index].main_vdd_volt = default_max_voltage;
 	opp->u_volt = default_max_voltage;
+	
+	opp->rate = default_max_rate;	
+	
+	if (bad_gov_check == 1) {
+		policy->governor->governor = (void *)bad_governor;
+	}
+	freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
+	policy->user_policy.min = temp_rate;
+	
 	omap_voltage_reset_fp(voltdm);
 	mutex_unlock(&vdd->scaling_mutex);
-	if (policy->governor->name != "performance") {
-		freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-		policy->user_policy.min = 300000;
-	}
-	freq_table[maxdex].frequency = policy->max = policy->cpuinfo.max_freq =
-	policy->user_policy.max = default_max_rate / 1000;
 	
 	printk(KERN_INFO " OPPerator: Reseting values to default... Goodbye!\n");
 };
