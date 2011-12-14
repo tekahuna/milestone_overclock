@@ -34,7 +34,8 @@
 #include "../symsearch/symsearch.h"
 
 #define DRIVER_AUTHOR "Jeffrey Kawika Patricio <jkp@tekahuna.net>\n"
-#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n"
+#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n\
+This modules uses SYMSEARCH by Skrilax_CZ\n"
 #define DRIVER_VERSION "0.2-alpha"
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
@@ -113,6 +114,7 @@ static int proc_opperator_write(struct file *filp, const char __user *buffer,
 		if (!vdd || IS_ERR(vdd)) {
 			return -ENODEV;
 		}
+		mutex_lock(&vdd->scaling_mutex);
 
 		dev = omap2_get_mpuss_device();
 		if (!dev || IS_ERR(dev)) {
@@ -245,6 +247,7 @@ static void __exit opperator_exit(void)
 	if (!vdd || IS_ERR(vdd)) {
 		return;
 	}
+	mutex_lock(&vdd->scaling_mutex);
 	
 	dev = omap2_get_mpuss_device();
 	if (!dev || IS_ERR(dev)) {
@@ -255,6 +258,7 @@ static void __exit opperator_exit(void)
 	if (!opp || IS_ERR(opp)) {
 		return;
 	}
+	opp->rate = default_max_rate;
 	
 	if (policy->governor->name == bad_governor) {
 		policy->governor->governor = (void *)good_governor;
@@ -272,8 +276,6 @@ static void __exit opperator_exit(void)
 	vdd->dep_vdd_info[0].dep_table[main_index].main_vdd_volt = default_max_voltage;
 	opp->u_volt = default_max_voltage;
 	
-	opp->rate = default_max_rate;	
-	
 	if (bad_gov_check == 1) {
 		policy->governor->governor = (void *)bad_governor;
 	}
@@ -283,7 +285,7 @@ static void __exit opperator_exit(void)
 	omap_voltage_reset_fp(voltdm);
 	mutex_unlock(&vdd->scaling_mutex);
 	
-	printk(KERN_INFO " OPPerator: Reseting values to default... Goodbye!\n");
+	printk(KERN_INFO " OPPerator: Resetting values to default... Goodbye!\n");
 };
 							 
 module_init(opperator_init);
