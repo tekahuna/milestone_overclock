@@ -89,6 +89,7 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 	opp = opp_find_freq_floor_fp(dev, &freq);
 	
 	ret += scnprintf(buffer+ret, count-ret, "%lu %lu\n", opp->rate, opp->u_volt);
+	ret += scnprintf(buffer+ret, count+ret, "%s\n", DRIVER_VERSION);
 
 	return ret;
 };
