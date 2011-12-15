@@ -1,6 +1,6 @@
 /*
  opperator.ko - The OPP Mannagement API
- version 0.1-beta1 - 12-14-11
+ version 0.2-beta1 - 12-14-11
  by Jeffrey Kawika Patricio <jkp@tekahuna.net>
  License: GNU GPLv3
  <http://www.gnu.org/licenses/gpl-3.0.html>
@@ -40,7 +40,7 @@
 code.google.com/p/opperator for more info\n\
 This modules uses SYMSEARCH by Skrilax_CZ\n\
 Inspire by Milestone Overclock by Tiago Sousa\n"
-#define DRIVER_VERSION "0.1-beta1"
+#define DRIVER_VERSION "0.2-beta1"
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESCRIPTION);
