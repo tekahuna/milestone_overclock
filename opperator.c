@@ -1,12 +1,12 @@
 /*
- opperator.ko - The OPP Mannagement API
+ opptimizer.ko - The OPP Mannagement API
  version 0.2-beta1 - 12-14-11
  by Jeffrey Kawika Patricio <jkp@tekahuna.net>
  License: GNU GPLv3
  <http://www.gnu.org/licenses/gpl-3.0.html>
  
  Project site:
- http://code.google.com/p/opperator/
+ http://code.google.com/p/opptimizer/
  
  Changelog:
  
@@ -36,8 +36,8 @@
 #include "../symsearch/symsearch.h"
 
 #define DRIVER_AUTHOR "Jeffrey Kawika Patricio <jkp@tekahuna.net>\n"
-#define DRIVER_DESCRIPTION "opperator.ko - The OPP Management API\n\
-code.google.com/p/opperator for more info\n\
+#define DRIVER_DESCRIPTION "opptimizer.ko - The OPP Management API\n\
+code.google.com/p/opptimizer for more info\n\
 This modules uses SYMSEARCH by Skrilax_CZ\n\
 Inspire by Milestone Overclock by Tiago Sousa\n"
 #define DRIVER_VERSION "0.2-beta1"
@@ -74,7 +74,7 @@ static struct cpufreq_policy *policy;
 #define BUF_SIZE PAGE_SIZE
 static char *buf;
 
-static int proc_opperator_read(char *buffer, char **buffer_location,
+static int proc_opptimizer_read(char *buffer, char **buffer_location,
 							   off_t offset, int count, int *eof, void *data)
 {
 	int ret = 0;
@@ -94,7 +94,7 @@ static int proc_opperator_read(char *buffer, char **buffer_location,
 	return ret;
 };
 
-static int proc_opperator_write(struct file *filp, const char __user *buffer,
+static int proc_opptimizer_write(struct file *filp, const char __user *buffer,
 								unsigned long len, void *data)
 {
 	int bad_gov_check = 0;
@@ -162,7 +162,7 @@ static int proc_opperator_write(struct file *filp, const char __user *buffer,
 	return len;
 };
 							 
-static int __init opperator_init(void)
+static int __init opptimizer_init(void)
 {
 	unsigned long freq = ULONG_MAX;
 	struct device *dev = ERR_PTR(-ENODEV);
@@ -177,14 +177,14 @@ static int __init opperator_init(void)
 		   DRIVER_AUTHOR);
 
 	// opp.c
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, 
+	SYMSEARCH_BIND_FUNCTION_TO(opptimizer, 
 				opp_get_opp_count, opp_get_opp_count_fp);
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, 
+	SYMSEARCH_BIND_FUNCTION_TO(opptimizer, 
 				opp_find_freq_floor, opp_find_freq_floor_fp);
 	// voltage.c
-	SYMSEARCH_BIND_FUNCTION_TO(opperator, 
+	SYMSEARCH_BIND_FUNCTION_TO(opptimizer, 
 				omap_voltage_domain_get, omap_voltage_domain_get_fp);
-	SYMSEARCH_BIND_FUNCTION_TO(opperator,
+	SYMSEARCH_BIND_FUNCTION_TO(opptimizer,
 							   omap_voltage_reset, omap_voltage_reset_fp);
 	 
 	freq_table = cpufreq_frequency_get_table(0);
@@ -223,14 +223,14 @@ static int __init opperator_init(void)
 	
 	buf = (char *)vmalloc(BUF_SIZE);
 	
-	proc_entry = create_proc_read_entry("opperator", 0644, NULL, 
-										proc_opperator_read, NULL);
-	proc_entry->write_proc = proc_opperator_write;
+	proc_entry = create_proc_read_entry("opptimizer", 0644, NULL, 
+										proc_opptimizer_read, NULL);
+	proc_entry->write_proc = proc_opptimizer_write;
 	
 	return 0;
 };
 
-static void __exit opperator_exit(void)
+static void __exit opptimizer_exit(void)
 {
 	int bad_gov_check = 0;
 	unsigned long temp_rate, freq = ULONG_MAX;
@@ -239,7 +239,7 @@ static void __exit opperator_exit(void)
 	struct omap_vdd_info *vdd;
 	struct omap_opp *opp = ERR_PTR(-ENODEV);
 	
-	remove_proc_entry("opperator", NULL);
+	remove_proc_entry("opptimizer", NULL);
 	
 	vfree(buf);
 	
@@ -290,9 +290,9 @@ static void __exit opperator_exit(void)
 	omap_voltage_reset_fp(voltdm);
 	mutex_unlock(&vdd->scaling_mutex);
 	
-	printk(KERN_INFO " OPPerator: Resetting values to default... Goodbye!\n");
+	printk(KERN_INFO " opptimizer: Resetting values to default... Goodbye!\n");
 };
 							 
-module_init(opperator_init);
-module_exit(opperator_exit);
+module_init(opptimizer_init);
+module_exit(opptimizer_exit);
 
