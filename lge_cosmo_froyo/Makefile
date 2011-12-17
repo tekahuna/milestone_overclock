@@ -1,7 +1,7 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/lge_cosmo_froyo
 KERNEL_CROSS_COMPILE := arm-eabi-
 EXTRA_CFLAGS :=
-FILENAME := opperator
+FILENAME := opptimizer
 
 obj-m += $(FILENAME).o
 

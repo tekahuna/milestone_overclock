@@ -1,0 +1,3 @@
+insmod symsearch.ko
+insmod opptimizer.ko
+echo 1122000000 > /proc/opperator

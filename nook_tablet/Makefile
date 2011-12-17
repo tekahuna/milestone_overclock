@@ -1,7 +1,7 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/nook_tablet
 KERNEL_CROSS_COMPILE := arm-eabi-
 EXTRA_CFLAGS :=
-FILENAME := opperator
+FILENAME := opptimizer
 
 obj-m += $(FILENAME).o
 

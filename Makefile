@@ -61,4 +61,4 @@ clean:	clean_cm_cosmo clean_lge_cosmo_froyo clean_lge_cosmo_gb clean_moto_droid3
 	rm -f *~
 
 dist:
-	tar cvfz ../opperator.tar.gz ../opperator/
+	tar cvfz ../opptimizer.tar.gz ../opptimizer/

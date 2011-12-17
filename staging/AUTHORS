@@ -1,0 +1,7 @@
+FreeWELL/tekahuna
+
+OPPtimizer kernel module makes use of SYMSEARCH by Skrilax_CZ:
+https://github.com/a853/a853_modules_froyo/tree/master/symsearch
+
+Inspired by Milestone Overclock by Tiago Sousa(and the modifications by nadlabak & Skrilax_CZ):
+http://code.google.com/p/milestone-overclock/
