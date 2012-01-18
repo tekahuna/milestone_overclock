@@ -1,4 +1,4 @@
-SUBDIRS = cm_cosmo lge_cosmo_froyo lge_cosmo_gb moto_droid3 moto_bionic moto_razr kindle_fire nook_tablet samsung_i9100g
+SUBDIRS = cm_cosmo lge_cosmo_froyo lge_cosmo_gb moto_atrix2 moto_xboard moto_droid3 moto_bionic moto_razr kindle_fire nook_tablet samsung_i9100g
 .PHONY: $(SUBDIRS)
 
 all:	$(SUBDIRS)
@@ -11,6 +11,12 @@ lge_cosmo_froyo:
 
 lge_cosmo_gb:
 	cd lge_cosmo_gb && make
+
+moto_atrix2:
+	cd moto_atrix2 && make
+
+moto_xyboard:
+	cd moto_xyboard && make
 
 moto_droid3:
 	cd moto_droid3 && make
@@ -42,6 +48,12 @@ clean_lge_cosmo_gb:
 clean_moto_droid3:
 	cd moto_droid3 && make clean
 
+clean_moto_atrix2:
+	cd moto_atrix2 && make clean
+
+clean_moto_xyboard:
+	cd moto_xyboard && make clean
+
 clean_moto_bionic:
 	cd moto_bionic && make clean
 
@@ -57,7 +69,7 @@ clean_nook_tablet:
 clean_samsung_i9100g:
 	cd samsung_i9100g && make clean
 
-clean:	clean_cm_cosmo clean_lge_cosmo_froyo clean_lge_cosmo_gb clean_moto_droid3 clean_moto_bionic clean_moto_razr clean_kindle_fire clean_nook_tablet clean_samsung_i9100g
+clean:	clean_cm_cosmo clean_lge_cosmo_froyo clean_lge_cosmo_gb clean_moto_droid3 clean_moto_atrix2 clean_moto_xyboard clean_moto_bionic clean_moto_razr clean_kindle_fire clean_nook_tablet clean_samsung_i9100g
 	rm -f *~
 
 dist:
