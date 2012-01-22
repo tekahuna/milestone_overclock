@@ -1,6 +1,6 @@
 /*
  opptimizer.ko - The OPP Mannagement API
- version 0.2-beta1 - 12-14-11
+ version 0.5-elima - 01-21-2012
  by Jeffrey Kawika Patricio <jkp@tekahuna.net>
  License: GNU GPLv3
  <http://www.gnu.org/licenses/gpl-3.0.html>
@@ -21,13 +21,16 @@
  - Initial working build.
  */
 
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/cpufreq.h>
+#include <linux/cpu.h>
 #include <linux/version.h>
 #include <linux/proc_fs.h>
 #include <linux/vmalloc.h>
 #include <asm/uaccess.h>
-#include <linux/cpufreq.h>
+#include <linux/err.h>
 #include <plat/common.h>
 #include <plat/voltage.h>
 
