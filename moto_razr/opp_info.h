@@ -7,7 +7,7 @@
  *
  * This structure stores the OPP information for a given domain.
  */
-struct omap_opp {
+/*struct omap_opp {
 	struct list_head node;
 	
 	bool enabled;
@@ -15,8 +15,8 @@ struct omap_opp {
 	unsigned long u_volt;
 	u8 opp_id;
 	
-	struct device_opp *dev_opp; /* containing device_opp struct */
-};
+	struct device_opp *dev_opp; *//* containing device_opp struct */
+//}; 
 
 struct device_opp {
 	struct list_head node;
