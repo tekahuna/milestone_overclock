@@ -1,7 +1,7 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/moto_atrix2
 KERNEL_CROSS_COMPILE := arm-eabi-
 EXTRA_CFLAGS := 
-FILENAME := opptimizer
+FILENAME := overclock
 
 obj-m += $(FILENAME).o
 
