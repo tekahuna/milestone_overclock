@@ -79,3 +79,6 @@ GTAGS
 *.orig
 *~
 \#*#
+staging
+opptimizer.c
+opptimizer_real.c

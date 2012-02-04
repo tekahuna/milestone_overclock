@@ -33,7 +33,7 @@
 
 #define DRIVER_AUTHOR "Tiago Sousa <mirage@kaotik.org>, nadlabak, Skrilax_CZ, tekahuna"
 #define DRIVER_DESCRIPTION "Motorola Milestone CPU overclocking"
-#define DRIVER_VERSION "1.5-yokohama-mapphone-beta-02"
+#define DRIVER_VERSION "1.5-yokohama-mapphone-beta-03"
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -102,7 +102,7 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(void,
 #define MPU_CLK         "dpll_mpu_ck"
 #define GPU_CLK         "gpu_fck"
 
-static int opp_count, enabled_mpu_opp_count, main_index, cpufreq_index;
+static int opp_count, enabled_mpu_opp_count, main_index, base_index, cpufreq_index;
 
 static char bad_governor[16] = "performance";
 static char good_governor[16] = "hotplug";
@@ -164,7 +164,7 @@ static int proc_mpu_opps_read(char *buffer, char **buffer_location,
 		ret = 0;
 	else
 		// print out valid opp_id's
-		for(i = main_index;i >= main_index-cpufreq_index; i--) 
+		for(i = main_index;i >= base_index; i--) 
 		{
 			mpu_opps = opp_find_by_opp_id_fp(mpu_dev, i);
 			ret += scnprintf(buffer+ret, count-ret, "mpu_opps[%d] rate=%lu opp_id=%u vsel=%u u_volt=%lu\n", i, 
@@ -200,10 +200,12 @@ static int proc_gpu_opps_read(char *buffer, char **buffer_location,
 static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 		unsigned long len, void *data)
 {
-	uint index, rate, vsel, volt, rate_min = policy->user_policy.min;
-	
-	bool bad_gov_check = 0;
+	uint index, rate, vsel, volt, mpu_min, mpu_max;
+	bool bad_gov_check = false;
 
+	mpu_min = policy->user_policy.min;
+	mpu_max = policy->user_policy.max;
+	
 	if(!len || len >= BUF_SIZE)
 		return -ENOSPC;
 
@@ -215,24 +217,24 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 	if(sscanf(buf, "%d %d %d", &index, &rate, &vsel) == 3) 
 	{
 		//check to make sure valid opp_id is entered
-		if (index < main_index-cpufreq_index || index > main_index) {
+		if (index < base_index || index > main_index) {
 			printk(KERN_INFO "overclock: invalid parameters for mpu_opps opp_id\n");
 			return len;
 		}
 		//we don't like making changes in performance governor
 		if (policy->governor->name == bad_governor) {
 			policy->governor->governor = (void *)good_governor;
-			bad_gov_check = 1;
+			bad_gov_check = true;
 		}
 		/* we need to lock frequency on to stop dvfs, and it can't be the
 		   same opp_id we are writing to, sloppy fix goes here */
 		if (index == main_index) {
 			policy->max = policy->cpuinfo.max_freq =
-			policy->user_policy.max = policy->user_policy.min;
+			policy->user_policy.max = freq_table[0].frequency;
 		}
 		else {
 			policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = policy->user_policy.max;
+			policy->user_policy.min = mpu_max;
 		}	
 		//convert vsel to voltage in uV
 		volt = omap_max8952_vsel_to_uv_fp(vsel);
@@ -251,31 +253,31 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 		
 		//undo the cpu_freq lock that stops dvfs transitioning
 		if (index == main_index) {
+			policy->min = policy->cpuinfo.min_freq =
+			policy->user_policy.min = mpu_min;
 			policy->max = policy->cpuinfo.max_freq =
 			policy->user_policy.max = rate / 1000;
-			freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = rate_min;
 		}
-		else if (index == main_index-cpufreq_index) {
+		else if (index == base_index) {
 			policy->min = policy->cpuinfo.min_freq =
 			policy->user_policy.min = rate / 1000;
-			freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = rate / 1000;
+			policy->max = policy->cpuinfo.max_freq =
+			policy->user_policy.max = mpu_max;
 		}
 		else {
 			policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = rate_min;
-			freq_table[0].frequency = policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = rate_min;
+			policy->user_policy.min = mpu_min;
+			policy->max = policy->cpuinfo.max_freq =
+			policy->user_policy.max = mpu_max;
 		}
 		//reset voltage to current values
 		omap_voltage_reset_fp(voltdm);
 		//update frequency table (index - lowest enabled opp_id)
-		freq_table[index-(main_index-cpufreq_index)].frequency = rate / 1000;
+		freq_table[index-(base_index)].frequency = rate / 1000;
 		//write frequency for mpu_opps
 		mpu_opps->rate = rate;
 		//put us back in performance governor if we started there
-		if (bad_gov_check == 1) {
+		if (bad_gov_check == true) {
 			policy->governor->governor = (void *)bad_governor;
 		}
 //		cpufreq_stats_freq_update(0, cpufreq_index - index, rate / 1000);
@@ -390,6 +392,8 @@ static int __init overclock_init(void)
 		main_index = enabled_mpu_opp_count;
 		cpufreq_index = (enabled_mpu_opp_count-1);
 	}
+	
+	base_index = main_index-cpufreq_index;
 		
 	buf = (char *)vmalloc(BUF_SIZE);
 
