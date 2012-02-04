@@ -33,7 +33,7 @@
 
 #define DRIVER_AUTHOR "Tiago Sousa <mirage@kaotik.org>, nadlabak, Skrilax_CZ, tekahuna"
 #define DRIVER_DESCRIPTION "Motorola Milestone CPU overclocking"
-#define DRIVER_VERSION "1.5-yokohama-mapphone-beta-03"
+#define DRIVER_VERSION "1.5-yokohama-mapphone-beta-04"
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -89,8 +89,13 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp * __deprecated,
 SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, vsel_to_uv_fp, unsigned char vsel);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned char, uv_to_vsel_fp, unsigned long uv);
 
-//
+// opp44xxdata.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device *, find_dev_ptr_fp, char *name);
+
+// cpufreq_stats.c
+/*SYMSEARCH_DECLARE_FUNCTION_STATIC(int, cpufreq_stats_free_table_fp, unsigned int cpu);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(int, cpufreq_stats_create_table_fp, 
+			struct cpufreq_policy *policy, struct cpufreq_frequency_table *table); */
 
 // voltage.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct voltagedomain *, 
@@ -199,11 +204,11 @@ static int proc_gpu_opps_read(char *buffer, char **buffer_location,
 static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 		unsigned long len, void *data)
 {
-	uint index, rate, vsel, volt, mpu_min, mpu_max;
+	uint index, rate, vsel, volt, cpufreq_temp_min, cpufreq_temp_max;
 	bool bad_gov_check = false;
 
-	mpu_min = policy->user_policy.min;
-	mpu_max = policy->user_policy.max;
+	cpufreq_temp_min = policy->cpuinfo.min_freq;
+	cpufreq_temp_max = policy->cpuinfo.max_freq;
 	
 	if(!len || len >= BUF_SIZE)
 		return -ENOSPC;
@@ -228,12 +233,16 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 		/* we need to lock frequency on to stop dvfs, and it can't be the
 		   same opp_id we are writing to, sloppy fix goes here */
 		if (index == main_index) {
+			policy->min = policy->cpuinfo.min_freq =
+			policy->user_policy.min =
 			policy->max = policy->cpuinfo.max_freq =
-			policy->user_policy.max = freq_table[0].frequency;
+			policy->user_policy.max = freq_table[cpufreq_index-1].frequency;
 		}
 		else {
 			policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = mpu_max;
+			policy->user_policy.min = 
+			policy->max = policy->cpuinfo.max_freq =
+			policy->user_policy.max = cpufreq_temp_max;
 		}	
 		//convert vsel to voltage in uV
 		volt = vsel_to_uv_fp(vsel);
@@ -253,7 +262,7 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 		//undo the cpu_freq lock that stops dvfs transitioning
 		if (index == main_index) {
 			policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = mpu_min;
+			policy->user_policy.min = cpufreq_temp_min;
 			policy->max = policy->cpuinfo.max_freq =
 			policy->user_policy.max = rate / 1000;
 		}
@@ -261,13 +270,13 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 			policy->min = policy->cpuinfo.min_freq =
 			policy->user_policy.min = rate / 1000;
 			policy->max = policy->cpuinfo.max_freq =
-			policy->user_policy.max = mpu_max;
+			policy->user_policy.max = cpufreq_temp_max;
 		}
 		else {
 			policy->min = policy->cpuinfo.min_freq =
-			policy->user_policy.min = mpu_min;
+			policy->user_policy.min = cpufreq_temp_min;
 			policy->max = policy->cpuinfo.max_freq =
-			policy->user_policy.max = mpu_max;
+			policy->user_policy.max = cpufreq_temp_max;
 		}
 		//reset voltage to current values
 		omap_voltage_reset_fp(voltdm);
@@ -279,6 +288,8 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 		if (bad_gov_check == true) {
 			policy->governor->governor = (void *)bad_governor;
 		}
+//		cpufreq_stats_free_table_fp(0);
+//		cpufreq_stats_create_table_fp(policy, freq_table);
 //		cpufreq_stats_freq_update(0, cpufreq_index - index, rate / 1000);
 	} 
 	else
@@ -356,6 +367,12 @@ static int __init overclock_init(void)
 	//
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
 			find_dev_ptr, find_dev_ptr_fp);
+	
+	// cpufreq_stats.c
+/*	SYMSEARCH_BIND_FUNCTION_TO(overclock,
+			cpufreq_stats_free_table, cpufreq_stats_free_table_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(overclock,
+			cpufreq_stats_create_table, cpufreq_stats_create_table_fp); */
 	
 	// voltage.c
 	SYMSEARCH_BIND_FUNCTION_TO(overclock, 
