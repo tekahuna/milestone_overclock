@@ -1,6 +1,6 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/moto_xyboard
 KERNEL_CROSS_COMPILE := arm-eabi-
-EXTRA_CFLAGS := 
+EXTRA_CFLAGS := -DMAX8952
 FILENAME := opptimizer
 
 obj-m += $(FILENAME).o

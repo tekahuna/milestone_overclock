@@ -1,6 +1,6 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/moto_droid3
 KERNEL_CROSS_COMPILE := arm-eabi-
-EXTRA_CFLAGS := 
+EXTRA_CFLAGS := -DMAX8952
 FILENAME := overclock
 
 obj-m += $(FILENAME).o

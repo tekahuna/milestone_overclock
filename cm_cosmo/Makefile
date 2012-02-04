@@ -1,7 +1,7 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/cm_cosmo
 KERNEL_CROSS_COMPILE := arm-eabi-
 EXTRA_CFLAGS :=
-FILENAME := opptimizer
+FILENAME := overclock
 
 obj-m += $(FILENAME).o
 

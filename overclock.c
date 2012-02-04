@@ -67,7 +67,6 @@
 #include <asm/system.h> 
   
 #include <plat/omap-pm.h>
-#include <plat/opp-max.h>
 
 #include "opp_info.h"
 #include "../symsearch/symsearch.h"
@@ -87,8 +86,8 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *,
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp * __deprecated,
 								  opp_find_by_opp_id_fp, struct device *dev, u8 opp_id);
 // opp-max.c
-SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, omap_max8952_vsel_to_uv_fp, unsigned char vsel);
-SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned char, omap_max8952_uv_to_vsel_fp, unsigned long uv);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, vsel_to_uv_fp, unsigned char vsel);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned char, uv_to_vsel_fp, unsigned long uv);
 
 //
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device *, find_dev_ptr_fp, char *name);
@@ -168,7 +167,7 @@ static int proc_mpu_opps_read(char *buffer, char **buffer_location,
 		{
 			mpu_opps = opp_find_by_opp_id_fp(mpu_dev, i);
 			ret += scnprintf(buffer+ret, count-ret, "mpu_opps[%d] rate=%lu opp_id=%u vsel=%u u_volt=%lu\n", i, 
-			mpu_opps->rate, mpu_opps->opp_id, omap_max8952_uv_to_vsel_fp(mpu_opps->u_volt), mpu_opps->u_volt); 		
+			mpu_opps->rate, mpu_opps->opp_id, uv_to_vsel_fp(mpu_opps->u_volt), mpu_opps->u_volt); 		
 		}
 
 	return ret;
@@ -237,7 +236,7 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 			policy->user_policy.min = mpu_max;
 		}	
 		//convert vsel to voltage in uV
-		volt = omap_max8952_vsel_to_uv_fp(vsel);
+		volt = vsel_to_uv_fp(vsel);
 		//lock up omap_vdd_info structure for mpu vdd & write  no
 		mutex_lock(&vdd->scaling_mutex);
 		//write nominal table
@@ -343,10 +342,17 @@ static int __init overclock_init(void)
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
 							   opp_find_by_opp_id, opp_find_by_opp_id_fp);
 	// opp-max.c
+#ifdef MAX8952
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   omap_max8952_vsel_to_uv,  omap_max8952_vsel_to_uv_fp);
+							   omap_max8952_vsel_to_uv,  vsel_to_uv_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   omap_max8952_uv_to_vsel,  omap_max8952_uv_to_vsel_fp);
+							   omap_max8952_uv_to_vsel,  uv_to_vsel_fp);
+#else
+	SYMSEARCH_BIND_FUNCTION_TO(overclock,
+							   omap_twl_vsel_to_uv,  vsel_to_uv_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(overclock,
+							   omap_twl_uv_to_vsel,  uv_to_vsel_fp);
+#endif
 	//
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
 							   find_dev_ptr, find_dev_ptr_fp);
