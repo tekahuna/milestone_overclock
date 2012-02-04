@@ -1,3 +1,0 @@
-insmod symsearch.ko
-insmod opptimizer.ko
-echo 1122000000 1388000 > /proc/opptimizer
