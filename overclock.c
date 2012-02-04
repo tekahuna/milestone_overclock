@@ -80,11 +80,11 @@ MODULE_LICENSE("GPL");
 
 // opp.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(int, 
-								  opp_get_opp_count_fp, struct device *dev);
+			opp_get_opp_count_fp, struct device *dev);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp *, 
-								  opp_find_freq_floor_fp, struct device *dev, unsigned long *freq);
+			opp_find_freq_floor_fp, struct device *dev, unsigned long *freq);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp * __deprecated,
-								  opp_find_by_opp_id_fp, struct device *dev, u8 opp_id);
+			opp_find_by_opp_id_fp, struct device *dev, u8 opp_id);
 // opp-max.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, vsel_to_uv_fp, unsigned char vsel);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned char, uv_to_vsel_fp, unsigned long uv);
@@ -94,9 +94,9 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device *, find_dev_ptr_fp, char *name);
 
 // voltage.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct voltagedomain *, 
-								  omap_voltage_domain_get_fp, char *name);
+			omap_voltage_domain_get_fp, char *name);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(void, 
-								  omap_voltage_reset_fp, struct voltagedomain *voltdm);
+			omap_voltage_reset_fp, struct voltagedomain *voltdm);
 
 #define MPU_CLK         "dpll_mpu_ck"
 #define GPU_CLK         "gpu_fck"
@@ -336,32 +336,32 @@ static int __init overclock_init(void)
 
 	// opp.c
 	SYMSEARCH_BIND_FUNCTION_TO(overclock, 
-							   opp_get_opp_count, opp_get_opp_count_fp);
+			opp_get_opp_count, opp_get_opp_count_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(overclock, 
-							   opp_find_freq_floor, opp_find_freq_floor_fp);
+			opp_find_freq_floor, opp_find_freq_floor_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   opp_find_by_opp_id, opp_find_by_opp_id_fp);
+			opp_find_by_opp_id, opp_find_by_opp_id_fp);
 	// opp-max.c
 #ifdef MAX8952
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   omap_max8952_vsel_to_uv,  vsel_to_uv_fp);
+			omap_max8952_vsel_to_uv,  vsel_to_uv_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   omap_max8952_uv_to_vsel,  uv_to_vsel_fp);
+			omap_max8952_uv_to_vsel,  uv_to_vsel_fp);
 #else
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   omap_twl_vsel_to_uv,  vsel_to_uv_fp);
+			omap_twl_vsel_to_uv,  vsel_to_uv_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   omap_twl_uv_to_vsel,  uv_to_vsel_fp);
+			omap_twl_uv_to_vsel,  uv_to_vsel_fp);
 #endif
 	//
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   find_dev_ptr, find_dev_ptr_fp);
+			find_dev_ptr, find_dev_ptr_fp);
 	
 	// voltage.c
 	SYMSEARCH_BIND_FUNCTION_TO(overclock, 
-							   omap_voltage_domain_get, omap_voltage_domain_get_fp);
+			omap_voltage_domain_get, omap_voltage_domain_get_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
-							   omap_voltage_reset, omap_voltage_reset_fp);
+			omap_voltage_reset, omap_voltage_reset_fp);
 
 	freq_table = cpufreq_frequency_get_table(0);
 	
