@@ -103,13 +103,19 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(struct voltagedomain *,
 SYMSEARCH_DECLARE_FUNCTION_STATIC(void, 
 			omap_voltage_reset_fp, struct voltagedomain *voltdm);
 
+// cpufreq.c
+SYMSEARCH_DECLARE_FUNCTION_STATIC(struct cpufreq_governor *,
+			__find_governor_fp, const char *str_governor);
+SYMSEARCH_DECLARE_FUNCTION_STATIC(int, __cpufreq_set_policy_fp, 
+			struct cpufreq_policy *data, struct cpufreq_policy *policy);
+
 #define MPU_CLK         "dpll_mpu_ck"
 #define GPU_CLK         "gpu_fck"
 
 static int opp_count, enabled_mpu_opp_count, main_index, base_index, cpufreq_index;
 
-static char bad_governor[16] = "performance";
-static char good_governor[16] = "hotplug";
+static char orig_governor[16];
+static char good_governor[16] = "userspace";
 
 static struct device *mpu_dev, *gpu_dev;
 static struct voltagedomain *voltdm;
@@ -122,6 +128,31 @@ static struct clk *mpu_clk, *gpu_clk;
 #define BUF_SIZE PAGE_SIZE
 static char *buf;
 
+static int set_governor(struct cpufreq_policy *policy, char str_governor[16])
+{
+	unsigned int ret = -EINVAL;
+	struct cpufreq_policy *new_policy;
+	struct cpufreq_governor *t;
+	
+	new_policy = policy;
+	
+	cpufreq_get_policy(new_policy, policy->cpu);;
+		
+	t = __find_governor_fp(str_governor);
+	
+	if (t != NULL) {
+		new_policy->governor = t;
+	} else {
+		return ret;
+	}
+
+	ret = __cpufreq_set_policy_fp(policy, new_policy);
+	
+	policy->user_policy.policy = policy->policy;
+	policy->user_policy.governor = policy->governor;
+	
+	return ret;
+}
 
 static int proc_info_read(char *buffer, char **buffer_location,
 		off_t offset, int count, int *eof, void *data)
@@ -206,7 +237,7 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 {
 	uint index, rate, vsel, volt, cpufreq_temp_min, cpufreq_temp_max;
 	bool bad_gov_check = false;
-
+	
 	cpufreq_temp_min = policy->cpuinfo.min_freq;
 	cpufreq_temp_max = policy->cpuinfo.max_freq;
 	
@@ -225,11 +256,6 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 			printk(KERN_INFO "overclock: invalid parameters for mpu_opps opp_id\n");
 			return len;
 		}
-		//we don't like making changes in performance governor
-		if (policy->governor->name == bad_governor) {
-			policy->governor->governor = (void *)good_governor;
-			bad_gov_check = true;
-		}
 		/* we need to lock frequency on to stop dvfs, and it can't be the
 		   same opp_id we are writing to, sloppy fix goes here */
 		if (index == main_index) {
@@ -244,6 +270,12 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 			policy->max = policy->cpuinfo.max_freq =
 			policy->user_policy.max = cpufreq_temp_max;
 		}	
+		//we don't like making changes in performance governor
+		if (policy->governor->name != good_governor) {
+			strcpy(orig_governor, policy->governor->name);
+			set_governor(policy, good_governor);
+			bad_gov_check = true;
+		}
 		//convert vsel to voltage in uV
 		volt = vsel_to_uv_fp(vsel);
 		//lock up omap_vdd_info structure for mpu vdd & write  no
@@ -286,7 +318,7 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 		mpu_opps->rate = rate;
 		//put us back in performance governor if we started there
 		if (bad_gov_check == true) {
-			policy->governor->governor = (void *)bad_governor;
+			set_governor(policy, orig_governor);
 		}
 //		cpufreq_stats_free_table_fp(0);
 //		cpufreq_stats_create_table_fp(policy, freq_table);
@@ -379,6 +411,10 @@ static int __init overclock_init(void)
 			omap_voltage_domain_get, omap_voltage_domain_get_fp);
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
 			omap_voltage_reset, omap_voltage_reset_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(overclock,
+			__find_governor, __find_governor_fp);
+	SYMSEARCH_BIND_FUNCTION_TO(overclock,
+			__cpufreq_set_policy, __cpufreq_set_policy_fp);
 
 	freq_table = cpufreq_frequency_get_table(0);
 	
