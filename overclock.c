@@ -33,7 +33,7 @@
 
 #define DRIVER_AUTHOR "Tiago Sousa <mirage@kaotik.org>, nadlabak, Skrilax_CZ, tekahuna"
 #define DRIVER_DESCRIPTION "Motorola Milestone CPU overclocking"
-#define DRIVER_VERSION "1.5-yokohama-mapphone-beta-04"
+#define DRIVER_VERSION "1.5-yokohama-beta-05"
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -270,14 +270,18 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 			policy->max = policy->cpuinfo.max_freq =
 			policy->user_policy.max = cpufreq_temp_max;
 		}	
-		//we don't like making changes in performance governor
+		//we like making changes in userspace governor
 		if (policy->governor->name != good_governor) {
 			strcpy(orig_governor, policy->governor->name);
 			set_governor(policy, good_governor);
 			bad_gov_check = true;
 		}
 		//convert vsel to voltage in uV
-		volt = vsel_to_uv_fp(vsel);
+		if (vsel < 100) {
+			volt = vsel_to_uv_fp(vsel);
+		} else {
+		volt = vsel;
+		}
 		//lock up omap_vdd_info structure for mpu vdd & write  no
 		mutex_lock(&vdd->scaling_mutex);
 		//write nominal table
