@@ -1,6 +1,6 @@
 KERNEL_BUILD := /Volumes/FreeBASE/kernels/nook_tablet
 KERNEL_CROSS_COMPILE := arm-eabi-
-EXTRA_CFLAGS :=
+EXTRA_CFLAGS := -DOMAP4
 FILENAME := overclock
 
 obj-m += $(FILENAME).o

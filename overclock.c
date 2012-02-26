@@ -89,9 +89,10 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(struct omap_opp * __deprecated,
 SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, vsel_to_uv_fp, unsigned char vsel);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned char, uv_to_vsel_fp, unsigned long uv);
 
+#ifdef OMAP4
 // opp44xxdata.c
 SYMSEARCH_DECLARE_FUNCTION_STATIC(struct device *, find_dev_ptr_fp, char *name);
-
+#endif
 // cpufreq_stats.c
 /*SYMSEARCH_DECLARE_FUNCTION_STATIC(int, cpufreq_stats_free_table_fp, unsigned int cpu);
 SYMSEARCH_DECLARE_FUNCTION_STATIC(int, cpufreq_stats_create_table_fp, 
@@ -109,21 +110,32 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(struct cpufreq_governor *,
 SYMSEARCH_DECLARE_FUNCTION_STATIC(int, __cpufreq_set_policy_fp, 
 			struct cpufreq_policy *data, struct cpufreq_policy *policy);
 
+#ifdef OMAP4
 #define MPU_CLK         "dpll_mpu_ck"
-#define GPU_CLK         "gpu_fck"
+#define MPU_CLK         "dpll_mpu_ck"
+#else
+#define MPU_CLK         "dpll1_clk"
+#endif
 
 static int opp_count, enabled_mpu_opp_count, main_index, base_index, cpufreq_index;
 
 static char orig_governor[16];
 static char good_governor[16] = "userspace";
 
+#ifdef OMAP4
 static struct device *mpu_dev, *gpu_dev;
+static struct omap_opp *mpu_opps, *gpu_opps;
+static struct clk *mpu_clk, *gpu_clk;
+#else
+static struct device *mpu_dev;
+static struct omap_opp *mpu_opps;
+static struct clk *mpu_clk;
+#endif
 static struct voltagedomain *voltdm;
 static struct omap_vdd_info *vdd;
 static struct cpufreq_frequency_table *freq_table;
-static struct omap_opp *mpu_opps, *gpu_opps;
 static struct cpufreq_policy *policy;
-static struct clk *mpu_clk, *gpu_clk;
+
 
 #define BUF_SIZE PAGE_SIZE
 static char *buf;
@@ -162,9 +174,15 @@ static int proc_info_read(char *buffer, char **buffer_location,
 	if (offset > 0)
 		ret = 0;
 	else
+#ifdef OMAP4
 		ret = scnprintf(buffer, count, "cpumin=%u cpumax=%u min=%u max=%u usermin=%u usermax=%u\nmpu_clk_get_rate=%lu gpu_clk_get_rate=%lu\n",
 				policy->cpuinfo.min_freq, policy->cpuinfo.max_freq, policy->min, policy->max, policy->user_policy.min, policy->user_policy.max, 
 				clk_get_rate(mpu_clk) / 1000, clk_get_rate(gpu_clk) / 1000);
+#else
+		ret = scnprintf(buffer, count, "cpumin=%u cpumax=%u min=%u max=%u usermin=%u usermax=%u\nmpu_clk_get_rate=%lu\n",
+					policy->cpuinfo.min_freq, policy->cpuinfo.max_freq, policy->min, policy->max, policy->user_policy.min, policy->user_policy.max, 
+					clk_get_rate(mpu_clk) / 1000);
+#endif
 
 	return ret;
 }
@@ -206,28 +224,6 @@ static int proc_mpu_opps_read(char *buffer, char **buffer_location,
 			mpu_opps->rate, mpu_opps->opp_id, uv_to_vsel_fp(mpu_opps->u_volt), mpu_opps->u_volt); 		
 		}
 
-	return ret;
-}
-
-
-static int proc_gpu_opps_read(char *buffer, char **buffer_location,
-							  off_t offset, int count, int *eof, void *data)
-{
-	int ret = 0;
-	unsigned long freq = ULONG_MAX;
-	
-	if (offset > 0)
-		ret = 0;
-	else {
-		gpu_opps = opp_find_freq_floor_fp(gpu_dev, &freq);
-		if (!gpu_opps || IS_ERR(gpu_opps)) {
-			printk(KERN_INFO "overclock: could not find gpu_opps\n");
-			return ret;
-		}
-		ret += scnprintf(buffer+ret, count-ret, "gpu_opps[%d] rate=%lu opp_id=%d u_volt=%lu\n", 
-						 gpu_opps->opp_id, gpu_opps->rate, gpu_opps->opp_id, gpu_opps->u_volt);
-	}
-	
 	return ret;
 }
 
@@ -334,6 +330,28 @@ static int proc_mpu_opps_write(struct file *filp, const char __user *buffer,
 	return len;
 }   
 
+#ifdef OMAP4
+static int proc_gpu_opps_read(char *buffer, char **buffer_location,
+							  off_t offset, int count, int *eof, void *data)
+{
+	int ret = 0;
+	unsigned long freq = ULONG_MAX;
+	
+	if (offset > 0)
+		ret = 0;
+	else {
+		gpu_opps = opp_find_freq_floor_fp(gpu_dev, &freq);
+		if (!gpu_opps || IS_ERR(gpu_opps)) {
+			printk(KERN_INFO "overclock: could not find gpu_opps\n");
+			return ret;
+		}
+		ret += scnprintf(buffer+ret, count-ret, "gpu_opps[%d] rate=%lu opp_id=%d u_volt=%lu\n", 
+						 gpu_opps->opp_id, gpu_opps->rate, gpu_opps->opp_id, gpu_opps->u_volt);
+	}
+	
+	return ret;
+}
+
 
 static int proc_gpu_opps_write(struct file *filp, const char __user *buffer,
 							   unsigned long len, void *data)
@@ -358,7 +376,8 @@ static int proc_gpu_opps_write(struct file *filp, const char __user *buffer,
 		printk(KERN_INFO "overclock: insufficient parameters for gpu_opps\n");
 	
 	return len;
-}  
+}
+#endif
 
                             
 static int proc_version_read(char *buffer, char **buffer_location,
@@ -400,10 +419,10 @@ static int __init overclock_init(void)
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
 			omap_twl_uv_to_vsel,  uv_to_vsel_fp);
 #endif
-	//
+#ifdef OMAP4
 	SYMSEARCH_BIND_FUNCTION_TO(overclock,
 			find_dev_ptr, find_dev_ptr_fp);
-	
+#endif
 	// cpufreq_stats.c
 /*	SYMSEARCH_BIND_FUNCTION_TO(overclock,
 			cpufreq_stats_free_table, cpufreq_stats_free_table_fp);
@@ -425,7 +444,6 @@ static int __init overclock_init(void)
 	policy = cpufreq_cpu_get(0);
 	
 	mpu_clk = clk_get(NULL, MPU_CLK);
-	gpu_clk = clk_get(NULL, GPU_CLK);
 	
 	voltdm = omap_voltage_domain_get_fp("mpu");
 	if (!voltdm || IS_ERR(voltdm)) {
@@ -442,11 +460,14 @@ static int __init overclock_init(void)
 		return -ENODEV;
 	}
 	
+#ifdef OMAP4
+	gpu_clk = clk_get(NULL, GPU_CLK);
+	
 	gpu_dev = find_dev_ptr_fp("gpu");
 	if (!gpu_dev || IS_ERR(gpu_dev)) {
 		return -ENODEV;
 	}
-	
+#endif
 	enabled_mpu_opp_count = opp_get_opp_count_fp(mpu_dev);
 	
 	if (enabled_mpu_opp_count == opp_count) {
@@ -465,8 +486,10 @@ static int __init overclock_init(void)
 	proc_entry = create_proc_read_entry("overclock/freq_table", 0444, NULL, proc_freq_table_read, NULL);
 	proc_entry = create_proc_read_entry("overclock/mpu_opps", 0644, NULL, proc_mpu_opps_read, NULL);
 	proc_entry->write_proc = proc_mpu_opps_write;
+#ifdef OMAP4
 	proc_entry = create_proc_read_entry("overclock/gpu_opps", 0644, NULL, proc_gpu_opps_read, NULL);
 	proc_entry->write_proc = proc_gpu_opps_write;
+#endif
 	proc_entry = create_proc_read_entry("overclock/version", 0444, NULL, proc_version_read, NULL);
 
 	return 0;
@@ -476,7 +499,9 @@ static int __init overclock_init(void)
 static void __exit overclock_exit(void)
 {
 	remove_proc_entry("overclock/version", NULL);
+#ifdef OMAP4
 	remove_proc_entry("overclock/gpu_opps", NULL);
+#endif
 	remove_proc_entry("overclock/mpu_opps", NULL);
 	remove_proc_entry("overclock/freq_table", NULL);
 	remove_proc_entry("overclock/info", NULL);
