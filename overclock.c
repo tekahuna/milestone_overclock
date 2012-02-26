@@ -112,7 +112,7 @@ SYMSEARCH_DECLARE_FUNCTION_STATIC(int, __cpufreq_set_policy_fp,
 
 #ifdef OMAP4
 #define MPU_CLK         "dpll_mpu_ck"
-#define MPU_CLK         "dpll_mpu_ck"
+#define GPU_CLK         "gpu_fck"
 #else
 #define MPU_CLK         "dpll1_clk"
 #endif
